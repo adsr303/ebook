@@ -35,39 +35,13 @@ func main() {
 	defer zipFile.Close()
 
 	var container Container
-
-	for _, f := range zipFile.File {
-		if f.Name == "META-INF/container.xml" {
-			rc, err := f.Open()
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer rc.Close()
-
-			if err := xml.NewDecoder(rc).Decode(&container); err != nil {
-				log.Fatal(err)
-			}
-
-			break
-		}
+	if err := unmarshal(zipFile, "META-INF/container.xml", &container); err != nil {
+		log.Fatal(err)
 	}
 
 	var pkg Package
-
-	for _, f := range zipFile.File {
-		if f.Name == container.Rootfiles.Rootfile.FullPath {
-			rc, err := f.Open()
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer rc.Close()
-
-			if err := xml.NewDecoder(rc).Decode(&pkg); err != nil {
-				log.Fatal(err)
-			}
-
-			break
-		}
+	if err := unmarshal(zipFile, container.Rootfiles.Rootfile.FullPath, &pkg); err != nil {
+		log.Fatal(err)
 	}
 
 	fmt.Printf("Title: %s\n", pkg.Metadata.Title)
@@ -79,4 +53,23 @@ func main() {
 		fmt.Printf("%s", author)
 	}
 	fmt.Println()
+}
+
+func unmarshal(zipFile *zip.ReadCloser, fullPath string, v any) error {
+	for _, f := range zipFile.File {
+		if f.Name == fullPath {
+			rc, err := f.Open()
+			if err != nil {
+				return fmt.Errorf("error reading %s: %w", fullPath, err)
+			}
+			defer rc.Close()
+
+			if err := xml.NewDecoder(rc).Decode(v); err != nil {
+				return fmt.Errorf("error unmarshaling %s: %w", fullPath, err)
+			}
+
+			return nil
+		}
+	}
+	return fmt.Errorf("error reading %s: file not found", fullPath)
 }
