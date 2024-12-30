@@ -8,12 +8,19 @@ import (
 	"os"
 )
 
-type Metadata struct {
-	XMLName  xml.Name `xml:"package"`
+type Package struct {
 	Metadata struct {
 		Title   string   `xml:"title"`
 		Creator []string `xml:"creator"`
 	} `xml:"metadata"`
+}
+
+type Container struct {
+	Rootfiles struct {
+		Rootfile struct {
+			FullPath string `xml:"full-path,attr"`
+		} `xml:"rootfile"`
+	} `xml:"rootfiles"`
 }
 
 func main() {
@@ -27,15 +34,7 @@ func main() {
 	}
 	defer zipFile.Close()
 
-	var metadata Metadata
-
-	var container struct {
-		Rootfiles struct {
-			Rootfile struct {
-				FullPath string `xml:"full-path,attr"`
-			} `xml:"rootfile"`
-		} `xml:"rootfiles"`
-	}
+	var container Container
 
 	for _, f := range zipFile.File {
 		if f.Name == "META-INF/container.xml" {
@@ -45,7 +44,6 @@ func main() {
 			}
 			defer rc.Close()
 
-			// Parse container.xml to find the path to the OPF file
 			if err := xml.NewDecoder(rc).Decode(&container); err != nil {
 				log.Fatal(err)
 			}
@@ -54,7 +52,8 @@ func main() {
 		}
 	}
 
-	// Find and parse the OPF file
+	var pkg Package
+
 	for _, f := range zipFile.File {
 		if f.Name == container.Rootfiles.Rootfile.FullPath {
 			rc, err := f.Open()
@@ -63,7 +62,7 @@ func main() {
 			}
 			defer rc.Close()
 
-			if err := xml.NewDecoder(rc).Decode(&metadata); err != nil {
+			if err := xml.NewDecoder(rc).Decode(&pkg); err != nil {
 				log.Fatal(err)
 			}
 
@@ -71,11 +70,11 @@ func main() {
 		}
 	}
 
-	fmt.Printf("Title: %s\n", metadata.Metadata.Title)
-	fmt.Printf("Author(s): ")
-	for i, author := range metadata.Metadata.Creator {
+	fmt.Printf("Title: %s\n", pkg.Metadata.Title)
+	fmt.Print("Author(s): ")
+	for i, author := range pkg.Metadata.Creator {
 		if i > 0 {
-			fmt.Printf(", ")
+			fmt.Print(", ")
 		}
 		fmt.Printf("%s", author)
 	}
