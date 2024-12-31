@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"log"
@@ -10,8 +11,8 @@ import (
 
 type Package struct {
 	Metadata struct {
-		Title   string   `xml:"title"`
-		Creator []string `xml:"creator"`
+		Title   string   `xml:"title" json:"title"`
+		Creator []string `xml:"creator" json:"creator"`
 	} `xml:"metadata"`
 }
 
@@ -44,15 +45,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Title: %s\n", pkg.Metadata.Title)
-	fmt.Print("Author(s): ")
-	for i, author := range pkg.Metadata.Creator {
-		if i > 0 {
-			fmt.Print(", ")
-		}
-		fmt.Printf("%s", author)
+	b, err := json.Marshal(pkg.Metadata)
+	if err != nil {
+		log.Fatal(err)
 	}
-	fmt.Println()
+	fmt.Println(string(b))
 }
 
 func unmarshal(zipFile *zip.ReadCloser, fullPath string, v any) error {
