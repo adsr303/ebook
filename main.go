@@ -28,7 +28,7 @@ type Container struct {
 
 type Ebook struct {
 	FileName string   `json:"fileName"`
-	Metadata Metadata `json:"metadata"`
+	Metadata
 }
 
 type Collection struct {
