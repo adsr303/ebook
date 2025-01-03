@@ -9,11 +9,13 @@ import (
 	"os"
 )
 
+type Metadata struct {
+	Title   string   `xml:"title" json:"title"`
+	Creator []string `xml:"creator" json:"creator"`
+}
+
 type Package struct {
-	Metadata struct {
-		Title   string   `xml:"title" json:"title"`
-		Creator []string `xml:"creator" json:"creator"`
-	} `xml:"metadata"`
+	Metadata Metadata `xml:"metadata"`
 }
 
 type Container struct {
@@ -24,32 +26,55 @@ type Container struct {
 	} `xml:"rootfiles"`
 }
 
+type Ebook struct {
+	FileName string   `json:"fileName"`
+	Metadata Metadata `json:"metadata"`
+}
+
+type Collection struct {
+	Ebooks []Ebook `json:"ebooks"`
+}
+
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatalf("Usage: %s <epub_file>", os.Args[0])
+		log.Fatalf("Usage: %s <epub_file>...", os.Args[0])
 	}
 
-	zipFile, err := zip.OpenReader(os.Args[1])
+	collection := Collection{Ebooks: make([]Ebook, 0)}
+	for _, fileName := range os.Args[1:] {
+		ebook, err := read(fileName)
+		if err != nil {
+			log.Printf("reading %s: %s", fileName, err)
+			continue
+		}
+		collection.Ebooks = append(collection.Ebooks, ebook)
+	}
+
+	b, err := json.Marshal(collection)
 	if err != nil {
 		log.Fatal(err)
+	}
+	fmt.Println(string(b))
+}
+
+func read(fileName string) (Ebook, error) {
+	zipFile, err := zip.OpenReader(fileName)
+	if err != nil {
+		return Ebook{}, err
 	}
 	defer zipFile.Close()
 
 	var container Container
 	if err := unmarshal(zipFile, "META-INF/container.xml", &container); err != nil {
-		log.Fatal(err)
+		return Ebook{}, err
 	}
 
 	var pkg Package
 	if err := unmarshal(zipFile, container.Rootfiles.Rootfile.FullPath, &pkg); err != nil {
-		log.Fatal(err)
+		return Ebook{}, err
 	}
 
-	b, err := json.Marshal(pkg.Metadata)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(string(b))
+	return Ebook{FileName: fileName, Metadata: pkg.Metadata}, nil
 }
 
 func unmarshal(zipFile *zip.ReadCloser, fullPath string, v any) error {
